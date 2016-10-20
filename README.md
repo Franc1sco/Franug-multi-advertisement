@@ -20,3 +20,8 @@ Example link for pinion:
 ```
 http://motd.pinion.gg/motd/playelectronicsports/{GAME}/motd.html
 ```
+
+Example link for vppgamingnetwork:
+```
+http://vppgamingnetwork.com/Client/Content/1288
+```
