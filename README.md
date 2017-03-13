@@ -13,7 +13,7 @@ You can add the following words to the links for auto replace:
 
 Example links for motdgd:
 ```
-http://motdgd.com/motd/?user=10696&ip={IP}&pt={PORT}&v=2.4.87&st={STEAMID}&gm={GAME}&name={NAME}
+http://motdgd.com/motd/?user=10696&ip={IP}&pt={PORT}&v=2.5.2&st={STEAMID}&gm={GAME}&name={NAME}
 ```
 
 Example link for pinion:
