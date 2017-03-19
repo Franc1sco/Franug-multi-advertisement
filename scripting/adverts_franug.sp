@@ -1,74 +1,42 @@
-#pragma semicolon 1
 #include <sourcemod>
 
-#undef REQUIRE_EXTENSIONS
-#include <SteamWorks>
+// start
+#define MIN_TIME 10.0
+#define MAX_TIME 15.0
+// end
 
-#define STRING(%1) %1, sizeof(%1)
+#define IDAYS 1 // purge
 
-#define PLUGIN_VERSION "2.4.19"
-
-// ====[ HANDLES | CVARS | VARIABLES ]===================================================
-//new Handle:g_motdID;
-new Handle:g_OnConnect;
-new Handle:g_immunity;
-new Handle:g_OnOther;
-new Handle:g_Review;
-new Handle:g_forced;
-new Handle:g_autoClose;
-
-new const String:g_GamesSupported[][] = {
-	"tf",
-	"csgo",
-	"cstrike",
-	"dod",
-	"nucleardawn",
-	"hl2mp",
-	"left4dead",
-	"left4dead2",
-	"nmrih",
-	"fof",
-	"insurgency"
-};
 new String:gameDir[255];
 new String:g_serverIP[16];
 
 new g_serverPort;
-new g_shownTeamVGUI[MAXPLAYERS+1] = { false, ... };
-new g_lastView[MAXPLAYERS+1];
-new Handle:g_Whitelist = INVALID_HANDLE;
 
-new bool:VGUICaught[MAXPLAYERS+1];
-new bool:CanReview;
-new bool:LateLoad;
+new ismysql;
+new Handle:db;
+new bool:uselocal = false;
+new bool:comprobado[MAXPLAYERS+1];
 
-// ====[ PLUGIN | FORWARDS ]========================================================================
+new g_phraseCount;
+new String:g_Phrases[256][192];
+new Handle:arbol[MAXPLAYERS+1] = INVALID_HANDLE;
+
+new String:g_sCmdLogPath[256];
+
+new Handle:tiempo[MAXPLAYERS+1];
+
 public Plugin:myinfo =
 {
-	name = "MULTI Adverts",
-	author = "Franc1sco franug",
-	description = "Displays ADVERTS In-Game Advertisements",
-	version = PLUGIN_VERSION,
-	url = ""
-}
+    name = "MULTI Adverts",
+    author = "Franc1sco franug",
+    description = "",
+    version = "3.0",
+    url = "http://steamcommunity.com/id/franug"
+};
 
 public OnPluginStart()
 {
-	// Global Server Variables //
-	new bool:exists = false;
 	GetGameFolderName(gameDir, sizeof(gameDir));
-	for (new i = 0; i < sizeof(g_GamesSupported); i++)
-	{
-		if (StrEqual(g_GamesSupported[i], gameDir))
-		{
-			exists = true;
-			break;
-		}
-	}
-	if (!exists)
-		SetFailState("The game '%s' isn't currently supported by the ADVERTS plugin!", gameDir);
-	exists = false;
-
 	new Handle:serverIP = FindConVar("hostip");
 	new Handle:serverPort = FindConVar("hostport");
 	if (serverIP == INVALID_HANDLE || serverPort == INVALID_HANDLE)
@@ -78,99 +46,235 @@ public OnPluginStart()
 	g_serverPort = GetConVarInt(serverPort);
 	Format(g_serverIP, sizeof(g_serverIP), "%d.%d.%d.%d", IP >>> 24 & 255, IP >>> 16 & 255, IP >>> 8 & 255, IP & 255);
 	
-	// Plugin ConVars // 
-	CreateConVar("sm_franugadverts_version", PLUGIN_VERSION, "[SM] ADVERTS Plugin Version", FCVAR_NOTIFY|FCVAR_DONTRECORD);
-
-	g_immunity = CreateConVar("sm_adverts_immunity", "0", "Enable/Disable advert immunity");
-	g_OnConnect = CreateConVar("sm_adverts_onconnect", "1", "Enable/Disable advert on connect");
-	g_autoClose = CreateConVar("sm_adverts_auto_close", "40.0", "Set time (in seconds) to automatically close the MOTD window.", _, true, 30.0);
-	// Global Server Variables //
 	
-	if (!StrEqual(gameDir, "left4dead2") && !StrEqual(gameDir, "left4dead"))
+	RegConsoleCmd("sm_publicidad", Comando);
+	
+	ComprobarDB(true, "multiadvers");
+}
+
+public OnClientDisconnect(client)
+{	
+	if(comprobado[client] && !IsFakeClient(client)) SaveCookies(client);
+	comprobado[client] = false;
+	if(arbol[client] != INVALID_HANDLE)
 	{
-		HookEventEx("arena_win_panel", Event_End);
-		HookEventEx("cs_win_panel_round", Event_End);
-		HookEventEx("dod_round_win", Event_End);
-		HookEventEx("player_death", Event_Death);
-		HookEventEx("round_start", Event_Start);
-		HookEventEx("round_win", Event_End);
-		HookEventEx("teamplay_win_panel", Event_End);
-		
-		g_OnOther = CreateConVar("sm_adverts_onother", "2", "Set 0 to disable, 1 to show on round end, 2 to show on player death, 4 to show on round start, 3=1+2, 5=1+4, 6=2+4, 7=1+2+4");
-		g_Review = CreateConVar("sm_adverts_review", "15.0", "Set time (in minutes) to re-display the ad. ConVar sm_motdgd_onother must be configured", _, true, 15.0);
+		ClearTrie(arbol[client]);
+		CloseHandle(arbol[client]);
+		arbol[client] = INVALID_HANDLE;
 	}
-
-	if (!StrEqual(gameDir, "left4dead2") && !StrEqual(gameDir, "left4dead") && !StrEqual(gameDir, "csgo"))
+	if(tiempo[client] != INVALID_HANDLE)
 	{
-		g_forced = CreateConVar("sm_adverts_forced_duration", "5", "Number of seconds to force an ad view for (except in CS:GO, L4D, L4D2)");
+		KillTimer(tiempo[client]);
+		tiempo[client] = INVALID_HANDLE;
 	}
-	// Plugin ConVars //
+}
 
-	// MOTDgd MOTD Stuff //
-	new UserMsg:datVGUIMenu = GetUserMessageId("VGUIMenu");
-	if (datVGUIMenu == INVALID_MESSAGE_ID)
-		SetFailState("The game '%s' doesn't support VGUI menus.", gameDir);
-	HookUserMessage(datVGUIMenu, OnVGUIMenu, true);
-	AddCommandListener(ClosedMOTD, "closed_htmlpage");
-	
-	HookEventEx("player_transitioned", Event_PlayerTransitioned);
-	// MOTDgd MOTD Stuff //
-	
-	AutoExecConfig(true);
-	LoadWhitelist();
-
-	if(LateLoad) 
+SaveCookies(client)
+{
+	decl String:steamid[32];
+	//GetClientAuthId(client, AuthId_Steam2,  steamid, sizeof(steamid) );
+	GetClientIP(client, steamid, sizeof(steamid) );
+	new String:Name[MAX_NAME_LENGTH+1];
+	new String:SafeName[(sizeof(Name)*2)+1];
+	if (!GetClientName(client, Name, sizeof(Name)))
+		Format(SafeName, sizeof(SafeName), "<noname>");
+	else
 	{
-		for(new i=1;i<=MaxClients;i++) 
+		TrimString(Name);
+		SQL_EscapeString(db, Name, SafeName, sizeof(SafeName));
+	}	
+
+	decl String:buffer[3096];
+	Format(buffer, sizeof(buffer), "UPDATE publicidad SET last_accountuse = %d, playername = '%s' WHERE ip = '%s';",GetTime(), SafeName,steamid);
+	LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+	SQL_TQuery(db, tbasico2, buffer);
+}
+
+ComprobarDB(bool:reconnect = false,String:basedatos[64] = "weaponpaints")
+{
+	if(uselocal) basedatos = "clientprefs";
+	if(reconnect)
+	{
+		if (db != INVALID_HANDLE)
 		{
-			if(IsClientInGame(i))
-				g_lastView[i] = GetTime();
+			//LogMessage("Reconnecting DB connection");
+			CloseHandle(db);
+			db = INVALID_HANDLE;
 		}
 	}
-
-	if(LibraryExists("SteamWorks")) {
-		IP = SteamWorks_GetPublicIPCell();
-		Format(g_serverIP, sizeof(g_serverIP), "%d.%d.%d.%d", IP >>> 24 & 255, IP >>> 16 & 255, IP >>> 8 & 255, IP & 255);
-	}
-}
-
-public OnLibraryAdded(const String:name[]) {
-	if(strcmp(name, "SteamWorks")==0) {
-		new IP = SteamWorks_GetPublicIPCell();
-		Format(g_serverIP, sizeof(g_serverIP), "%d.%d.%d.%d", IP >>> 24 & 255, IP >>> 16 & 255, IP >>> 8 & 255, IP & 255);
-	}
-}
-
-public bool:OnClientConnect(client, String:rejectmsg[], maxlen)
-{
-	// Set the expected defaults for the client
-	VGUICaught[client] = false;
-	g_shownTeamVGUI[client] = false;
-	g_lastView[client] = 0;
-	
-	if (!StrEqual(gameDir, "left4dead2") && !StrEqual(gameDir, "left4dead"))
-		CanReview = true;
-	
-	return true;
-}
-
-public OnClientPutInServer(client)
-{
-	// Load the advertisement via conventional means
-	if (StrEqual(gameDir, "left4dead2") && GetConVarBool(g_OnConnect))
+	else if (db != INVALID_HANDLE)
 	{
-		CreateTimer(0.1, PreMotdTimer, GetClientUserId(client));
+		return;
+	}
+
+	if (!SQL_CheckConfig( basedatos ))
+	{
+		if(StrEqual(basedatos, "clientprefs")) SetFailState("Databases not found");
+		else 
+		{
+			//base = "clientprefs";
+			ComprobarDB(true,"clientprefs");
+			uselocal = true;
+		}
+		
+		return;
+	}
+	SQL_TConnect(OnSqlConnect, basedatos);
+}
+
+public OnSqlConnect(Handle:owner, Handle:hndl, const String:error[], any:data)
+{
+	if (hndl == INVALID_HANDLE)
+	{
+		LogToFileEx(g_sCmdLogPath, "Database failure: %s", error);
+		
+		SetFailState("Databases dont work");
+	}
+	else
+	{
+		db = hndl;
+		decl String:buffer[3096];
+		
+		SQL_GetDriverIdent(SQL_ReadDriver(db), buffer, sizeof(buffer));
+		ismysql = StrEqual(buffer,"mysql", false) ? 1 : 0;
+	
+		if (ismysql == 1)
+		{
+			Format(buffer, sizeof(buffer), "CREATE TABLE IF NOT EXISTS `publicidad` (`playername` varchar(128) NOT NULL, `ip` varchar(32) NOT NULL, `last_accountuse` int(64) NOT NULL DEFAULT '0', `link0` int(64) ,`link1` int(64) , `link2` int(64),`link3` int(64) ,`link4` int(64) ,`link5` int(64) ,`link6` int(64) ,`link7` int(64) ,`link8` int(64) ,`link9` int(64) , PRIMARY KEY  (`ip`))");
+
+			LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+			SQL_TQuery(db, tbasicoC, buffer);
+
+		}
+		else
+		{
+			Format(buffer, sizeof(buffer), "CREATE TABLE IF NOT EXISTS publicidad (playername varchar(128) NOT NULL, ip varchar(32) NOT NULL, `last_accountuse` int(64) NOT NULL DEFAULT '0', link0 int(64) , link1 int(64) , link2 int(64) ,link3 int(64) ,link4 int(64) ,link5 int(64) ,link6 int(64) ,link7 int(64) ,link8 int(64) ,link9 int(64) , PRIMARY KEY  (ip))");
+		
+			LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+			SQL_TQuery(db, tbasicoC, buffer);
+		}
 	}
 }
 
-new g_phraseCount;
-new String:g_Phrases[256][192];
-
-public OnMapStart() {
-
-	LoadWhitelist();
+public OnMapStart()
+{
 	g_phraseCount = BuildPhrases();
 }
+
+public Action:Tiempo(Handle:timer)
+{
+	CreateTimer(GetRandomFloat(MIN_TIME, MAX_TIME), Tiempo);
+	
+	new client = GetRandomPlayer();
+	
+	if(client > 0) Comando(client, 0);
+}
+
+public Action:Comando(client, args)
+{
+	decl String:frase[512];
+
+	new link = GetRandomInt(0,(g_phraseCount -1 ));
+	new valor;
+	decl String:temp[32];
+	Format(temp, 32, "link%i", link);
+	//PrintToChatAll("paso1 %s", link);
+	new String:partes[3][512];
+	ExplodeString(g_Phrases[link], " ", partes, 3, 512);
+	Format(frase, 512, "%s",partes[0]);
+	//PrintToChatAll("paso1 %s %s %s", partes[0],partes[1],partes[2]);
+	if(!GetTrieValue(arbol[client], temp, valor)) return;
+	
+	if(valor != 0)
+	{
+		new maxlastaccuse;
+		maxlastaccuse = GetTime() - (1 * StringToInt(partes[1]));
+		if(maxlastaccuse < valor) return;
+	}
+	
+	
+/* 	new valorf = link+1;
+	decl String:temp2[32];
+	Format(temp2, 32, "link%i", valorf);
+	PrintToChatAll("paso1 %s", link); */
+	if(IsPlayerAlive(client) && StrEqual(partes[2], "si")) return;
+	
+	decl String:url[255];
+	decl String:steamid[255];
+	decl String:name[MAX_NAME_LENGTH];
+	decl String:name_encoded[MAX_NAME_LENGTH*2];
+	GetClientName(client, name, sizeof(name));
+	urlencode(name, name_encoded, sizeof(name_encoded));
+	
+	GetClientAuthId(client, AuthId_Engine, steamid, sizeof(steamid));
+
+	char temport[24];
+	IntToString(g_serverPort, temport, 24);
+	ReplaceString(url, 255, "{NAME}", name_encoded, true);
+	ReplaceString(url, 255, "{IP}", g_serverIP, true);
+	ReplaceString(url, 255, "{PORT}", temport, true);
+	ReplaceString(url, 255, "{STEAMID}", steamid, true);
+	ReplaceString(url, 255, "{GAME}", gameDir, true);
+	
+	
+	if(StrEqual(partes[2], "no", false)) StreamPanel(frase, client);
+	else StreamPanel3(frase, client);
+	
+	SetTrieValue(arbol[client], temp, GetTime());
+	
+	
+	decl String:ip[32];
+	GetClientIP(client, ip, sizeof(steamid) );
+	decl String:buffer[3096];
+	Format(buffer, sizeof(buffer), "UPDATE publicidad SET %s = %d WHERE ip = '%s';",temp,GetTime(),steamid);
+	LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+	SQL_TQuery(db, tbasico2, buffer);
+	
+	tiempo[client] = CreateTimer(20.0, Pasado, client);
+	
+	//PrintToChat(client, "hecho");
+}
+
+/* public StreamPanel(String:title[], String:url[], client) {
+	new Handle:Radio = CreateKeyValues("data");
+	KvSetString(Radio, "title", title);
+	KvSetString(Radio, "type", "2");
+	KvSetString(Radio, "msg", url);
+	ShowVGUIPanel(client, "info", Radio, false);
+	CloseHandle(Radio);
+}
+ */
+stock StreamPanel(String:url[512], client)
+{
+	Format(url, sizeof(url), "javascript: var x = screen.width * 0.90;var y = screen.height * 0.90;window.open(\"%s\", \"Really boomix, JS?\",\"scrollbars=yes, width='+x+',height='+y+'\");", url);
+	ShowMOTDPanel( client, " ", url, MOTDPANEL_TYPE_URL );
+	
+}
+
+stock StreamPanel3(String:url[512], client)
+{
+	ShowMOTDPanel( client, " ", url, MOTDPANEL_TYPE_URL );
+	
+}
+
+public Action:Pasado(Handle:timer, any:client)
+{
+	if(IsClientInGame(client))
+	{
+		StreamPanel3("http://motdgd.com/motd/blank.php", client);
+		tiempo[client] = INVALID_HANDLE;
+	}
+}
+
+GetRandomPlayer()
+{
+	new clients[MaxClients+1], clientCount;
+	for (new i = 1; i <= MaxClients; i++)
+		if (IsClientInGame(i) && !IsFakeClient(i) && tiempo[i] == INVALID_HANDLE) clients[clientCount++] = i;
+		
+	return (clientCount == 0) ? -1 : clients[GetRandomInt(0, clientCount-1)];
+}
+
 
 BuildPhrases()
 {
@@ -213,293 +317,206 @@ BuildPhrases()
 	}
 	else
 	{
-		SetFailState("[SM] no file found (configs/franug_adverts.ini)");
+		SetFailState("[SM] no file found (configs/publicidad.ini)");
 	}
 	
 	return totalLines;
 }
 
-// ====[ FUNCTIONS ]=====================================================================
+public OnClientPostAdminCheck(client)
+{
+	if(!IsFakeClient(client)) CheckSteamID(client);
+}
 
-public LoadWhitelist() {
+CheckSteamID(client)
+{
+	tiempo[client] = CreateTimer(20.0, estabien, client);
+	decl String:query[255], String:steamid[32];
+	//GetClientAuthId(client, AuthId_Steam2,  steamid, sizeof(steamid) );
+	GetClientIP(client, steamid, sizeof(steamid) );
+	
+	Format(query, sizeof(query), "SELECT * FROM publicidad WHERE ip = '%s'", steamid);
+	LogToFileEx(g_sCmdLogPath, "Query %s", query);
+	SQL_TQuery(db, T_CheckSteamID, query, GetClientUserId(client));
+}
 
-	if(g_Whitelist != INVALID_HANDLE) {
-		ClearArray(g_Whitelist);
-	} else {
-		g_Whitelist = CreateArray(32);
+public Action:estabien(Handle:timer, any:client)
+{
+	
+	tiempo[client] = INVALID_HANDLE;
+}
+ 
+public T_CheckSteamID(Handle:owner, Handle:hndl, const String:error[], any:data)
+{
+	new client;
+ 
+	/* Make sure the client didn't disconnect while the thread was running */
+	if ((client = GetClientOfUserId(data)) == 0)
+	{
+		return;
 	}
+	if (hndl == INVALID_HANDLE)
+	{
+		ComprobarDB();
+		return;
+	}
+	//PrintToChatAll("comprobado");
+	if (!SQL_GetRowCount(hndl) || !SQL_FetchRow(hndl)) 
+	{
+		Nuevo(client);
+		return;
+	}
+	
+	arbol[client] = CreateTrie();
+	
+	new String:temp2[64];
+	new temp;
+	new contar = 3;
+	new link = 1;
+	for(new i=0;i<g_phraseCount;++i)
+	{
+		temp = SQL_FetchInt(hndl, contar);
+		Format(temp2, sizeof(temp2), "link%i", link);
+		SetTrieValue(arbol[client], temp2, temp);
+		link++;
+		
+		//LogMessage("Sacado %i del arma %s", FindStringInArray(array_paints, temp),Items);
+		
+		contar++;
+	}
+	
+	comprobado[client] = true;
+}
 
-	new String:Path[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, STRING(Path), "configs/adverts_whitelist.cfg");
-	new Handle:hFile = OpenFile(Path, "r");
-	if(!hFile) {
+Nuevo(client)
+{
+	decl String:query[255], String:steamid[32];
+	//GetClientAuthId(client, AuthId_Steam2,  steamid, sizeof(steamid) );
+	GetClientIP(client, steamid, sizeof(steamid) );
+	new userid = GetClientUserId(client);
+	
+	new String:Name[MAX_NAME_LENGTH+1];
+	new String:SafeName[(sizeof(Name)*2)+1];
+	if (!GetClientName(client, Name, sizeof(Name)))
+		Format(SafeName, sizeof(SafeName), "<noname>");
+	else
+	{
+		TrimString(Name);
+		SQL_EscapeString(db, Name, SafeName, sizeof(SafeName));
+	}
+		
+	Format(query, sizeof(query), "INSERT INTO publicidad(playername, ip, last_accountuse) VALUES('%s', '%s', '0');", SafeName, steamid);
+	LogToFileEx(g_sCmdLogPath, "Query %s", query);
+	SQL_TQuery(db, tbasico3, query, userid);
+}
+
+
+public PruneDatabase()
+{
+	if (db == INVALID_HANDLE)
+	{
+		LogToFileEx(g_sCmdLogPath, "Prune Database: No connection");
+		ComprobarDB();
 		return;
 	}
 
-	new String:SteamID[32];
-	while(ReadFileLine(hFile, STRING(SteamID))) {
+	new maxlastaccuse;
+	maxlastaccuse = GetTime() - (IDAYS * 86400);
 
-		PushArrayString(g_Whitelist, SteamID[8]);
-	}
+	decl String:buffer[1024];
 
-	CloseHandle(hFile);
-}
-
-public Action:Event_End(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
-	
-	// Re-view minutes must be 15 or higher, re-view mode (onother) for this event
-	if (GetConVarFloat(g_Review) < 15.0 || (g_OnOther && GetConVarInt(g_OnOther) != 1 && GetConVarInt(g_OnOther) != 3 && GetConVarInt(g_OnOther) != 5 && GetConVarInt(g_OnOther) != 7))
-		return Plugin_Continue;
-	
-	// Only process the re-view event if the client is valid and is eligible to view another advertisement
-	if (IsValidClient(client) && CanReview && GetTime() - g_lastView[client] >= GetConVarFloat(g_Review) * 60)
-	{
-		g_lastView[client] = GetTime();
-		CreateTimer(0.1, PreMotdTimer, GetClientUserId(client));
-	}
-
-	return Plugin_Continue;
-}
-
-public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
-	if(!client)
-		return Plugin_Continue;
-
-	CreateTimer(0.5, CheckPlayerDeath, GetClientUserId(client));
-	
-	return Plugin_Continue;
-}
-
-public Action:Event_Start(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
-	
-	// Re-view minutes must be 15 or higher, re-view mode (onother) for this event
-	if (GetConVarFloat(g_Review) < 15.0 || (g_OnOther && GetConVarInt(g_OnOther) != 4 && GetConVarInt(g_OnOther) != 5 && GetConVarInt(g_OnOther) != 6 && GetConVarInt(g_OnOther) != 7))
-		return Plugin_Continue;
-	
-	// Only process the re-view event if the client is valid and is eligible to view another advertisement
-	if (IsValidClient(client) && CanReview && GetTime() - g_lastView[client] >= GetConVarFloat(g_Review) * 60)
-	{
-		g_lastView[client] = GetTime();
-		CreateTimer(0.1, PreMotdTimer, GetClientUserId(client));
-	}
-
-	return Plugin_Continue;
-}
-
-public Action:CheckPlayerDeath(Handle:timer, any:userid)
-{
-	new client=GetClientOfUserId(userid);
-	if(!client)
-		return Plugin_Stop;
-
-	// Check if client is valid
-	if (!IsValidClient(client))
-		return Plugin_Stop;
-	
-	// We don't want TF2's Dead Ringer triggering a false re-view event
-	if (IsPlayerAlive(client))
-		return Plugin_Stop;
-	
-	// Re-view minutes must be 15 or higher, re-view mode (onother) for this event
-	if (GetConVarFloat(g_Review) < 15.0 || (g_OnOther && GetConVarInt(g_OnOther) != 2 && GetConVarInt(g_OnOther) != 3 && GetConVarInt(g_OnOther) != 6 && GetConVarInt(g_OnOther) != 7))
-		return Plugin_Stop;
-	
-	// Only process the re-view event if the client is valid and is eligible to view another advertisement
-	if (CanReview && GetTime() - g_lastView[client] >= GetConVarFloat(g_Review) * 60)
-	{
-		g_lastView[client] = GetTime();
-		CreateTimer(0.1, PreMotdTimer, GetClientUserId(client));
-	}
-	
-	return Plugin_Stop;
-}
-
-public Action:Event_PlayerTransitioned(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
-
-	if (IsValidClient(client) && GetConVarBool(g_OnConnect))
-		CreateTimer(0.1, PreMotdTimer, GetClientUserId(client));
-
-	return Plugin_Continue;
-}
-
-public Action:OnVGUIMenu(UserMsg:msg_id, Handle:bf, const players[], playersNum, bool:reliable, bool:init)
-{
-	if(!(playersNum > 0))
-		return Plugin_Handled;
-	new client = players[0];
-	
-	if (playersNum > 1 || !IsValidClient(client) || VGUICaught[client] || !GetConVarBool(g_OnConnect))
-		return Plugin_Continue;
-
-	VGUICaught[client] = true;
-	
-	g_lastView[client] = GetTime();
-	
-	CreateTimer(0.1, PreMotdTimer, GetClientUserId(client));
-	
-	return Plugin_Handled;
-}
-
-public Action:ClosedMOTD(client, const String:command[], argc)
-{
-	if (!IsValidClient(client))
-		return Plugin_Handled;
-	
-	if(g_forced != INVALID_HANDLE && GetConVarInt(g_forced) != 0 && g_lastView[client] != 0 && (g_lastView[client]+GetConVarInt(g_forced) >= GetTime()))
-	{
-		new timeRemaining = ( ( g_lastView[client]+GetConVarInt(g_forced) )-GetTime() ) + 1;
-		
-		if (timeRemaining == 1)
-		{
-			PrintCenterText(client, "Please wait %i second", timeRemaining);
-		}
-		else
-		{
-			PrintCenterText(client, "Please wait %i seconds", timeRemaining);
-		}
-		
-		if (StrEqual(gameDir, "cstrike"))
-			ShowMOTDScreen(client, "", false);
-		else
-			ShowMOTDScreen(client, "http://", false);
-	}
+	if (ismysql == 1)
+		Format(buffer, sizeof(buffer), "DELETE FROM `publicidad` WHERE `last_accountuse`<'%d' AND `last_accountuse`>'0';", maxlastaccuse);
 	else
+		Format(buffer, sizeof(buffer), "DELETE FROM publicidad WHERE last_accountuse<'%d' AND last_accountuse>'0';", maxlastaccuse);
+
+	LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+	SQL_TQuery(db, tbasicoP, buffer);
+}
+
+public tbasico(Handle:owner, Handle:hndl, const String:error[], any:data)
+{
+	if (hndl == INVALID_HANDLE)
 	{
-        if (StrEqual(gameDir, "cstrike") || StrEqual(gameDir, "csgo") || StrEqual(gameDir, "insurgency"))
-            FakeClientCommand(client, "joingame");
-        else if (StrEqual(gameDir, "nucleardawn") || StrEqual(gameDir, "dod"))
-            ClientCommand(client, "changeteam");
+		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
 	}
-	
-	return Plugin_Handled;
-}
-
-public Action:PreMotdTimer(Handle:timer, any:userid)
-{
-	new client=GetClientOfUserId(userid);
-	if(!client)
-		return Plugin_Stop;
-
-	if (!IsValidClient(client))
-		return Plugin_Stop;
-	
-	decl String:url[255];
-	decl String:steamid[255];
-	decl String:name[MAX_NAME_LENGTH];
-	decl String:name_encoded[MAX_NAME_LENGTH*2];
-	GetClientName(client, name, sizeof(name));
-	urlencode(name, name_encoded, sizeof(name_encoded));
-	/*
-	if (GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid)))
-		Format(url, sizeof(url), "http://motdgd.com/motd/?user=%d&ip=%s&pt=%d&v=%s&st=%s&gm=%s&name=%s", GetConVarInt(g_motdID), g_serverIP, g_serverPort, PLUGIN_VERSION, steamid, gameDir, name_encoded);
-	else
-		Format(url, sizeof(url), "http://motdgd.com/motd/?user=%d&ip=%s&pt=%d&v=%s&st=NULL&gm=%s&name=%s", GetConVarInt(g_motdID), g_serverIP, g_serverPort, PLUGIN_VERSION, gameDir, name_encoded);
-	*/
-	new link = GetRandomInt(0,g_phraseCount-1);
-	
-	Format(url, sizeof(url), g_Phrases[link]);
-	char temport[24];
-	IntToString(g_serverPort, temport, 24);
-	ReplaceString(url, 255, "{NAME}", name_encoded, true);
-	ReplaceString(url, 255, "{IP}", g_serverIP, true);
-	ReplaceString(url, 255, "{PORT}", temport, true);
-	ReplaceString(url, 255, "{STEAMID}", steamid, true);
-	ReplaceString(url, 255, "{GAME}", gameDir, true);
-	
-	if(FindStringInArray(g_Whitelist, steamid[8])!=-1) {
-		return Plugin_Stop;
-	}
-
-	if(g_forced != INVALID_HANDLE && GetConVarInt(g_forced) != 0)
+	new client;
+ 
+	/* Make sure the client didn't disconnect while the thread was running */
+	if ((client = GetClientOfUserId(data)) == 0)
 	{
-		CreateTimer(0.2, RefreshMotdTimer, userid);
-	}
-
-	CreateTimer(GetConVarFloat(g_autoClose), AutoCloseTimer, userid);
-	ShowMOTDScreen(client, url, false); // False means show, true means hide
-	
-	return Plugin_Stop;
-}
-
-public Action:AutoCloseTimer(Handle:timer, any:userid)
-{
-	new client=GetClientOfUserId(userid);
-	
-	if(!client)
-		return Plugin_Stop;
-
-	ShowMOTDScreen(client, "http://motdgd.com/motd/blank.php", true);
-
-	return Plugin_Stop;
-}
-
-public Action:RefreshMotdTimer(Handle:timer, any:userid)
-{
-	new client=GetClientOfUserId(userid);
-	
-	if(!client)
-		return Plugin_Stop;
-
-	if (!IsValidClient(client))
-		return Plugin_Stop;
-
-	if(g_forced != INVALID_HANDLE && GetConVarInt(g_forced) != 0 && g_lastView[client] != 0 && (g_lastView[client]+GetConVarInt(g_forced)) >= GetTime())
-	{
-		CreateTimer(0.3, RefreshMotdTimer, userid);
-	}
-
-	ShowMOTDScreen(client, "http://", false);
-
-	return Plugin_Stop;
-}
-
-stock ShowMOTDScreen(client, String:url[], bool:hidden)
-{
-	if (!IsValidClient(client))
 		return;
-	
-	new Handle:kv = CreateKeyValues("data");
-
-	if (StrEqual(gameDir, "left4dead") || StrEqual(gameDir, "left4dead2"))
-		KvSetString(kv, "cmd", "closed_htmlpage");
-	else
-		KvSetNum(kv, "cmd", 5);
-
-	KvSetString(kv, "msg", url);
-	KvSetString(kv, "title", "MOTDgd AD");
-	KvSetNum(kv, "type", MOTDPANEL_TYPE_URL);
-	ShowVGUIPanel(client, "info", kv, !hidden);
-	CloseHandle(kv);
-}
-
-stock GetRealPlayerCount()
-{
-	new players;
-	for (new i = 1; i <= MaxClients; i++)
-	{
-		if (IsClientInGame(i) && !IsFakeClient(i))
-			players++;
 	}
-	return players;
+	comprobado[client] = true;
+	
 }
 
-stock bool:IsValidClient(i){
-	if (!i || !IsClientInGame(i) || IsClientSourceTV(i) || IsClientReplay(i) || IsFakeClient(i) || !IsClientConnected(i))
-		return false;
-	if (!GetConVarBool(g_immunity))
-		return true;
-	if (CheckCommandAccess(i, "ADVERTS_Immunity", ADMFLAG_RESERVATION))
-		return false;
+public tbasico2(Handle:owner, Handle:hndl, const String:error[], any:data)
+{
+	if (hndl == INVALID_HANDLE)
+	{
+		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+		ComprobarDB();
+	}
+}
 
-	return true;
+public tbasico3(Handle:owner, Handle:hndl, const String:error[], any:data)
+{
+	if (hndl == INVALID_HANDLE)
+	{
+		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+		ComprobarDB();
+	}
+	new client;
+ 
+	/* Make sure the client didn't disconnect while the thread was running */
+	if ((client = GetClientOfUserId(data)) == 0)
+	{
+		return;
+	}
+	
+	arbol[client] = CreateTrie();
+
+	SetTrieValue(arbol[client], "link0", 0);
+	SetTrieValue(arbol[client], "link1", 0);
+	SetTrieValue(arbol[client], "link2", 0);
+	SetTrieValue(arbol[client], "link3", 0);
+	SetTrieValue(arbol[client], "link4", 0);
+	SetTrieValue(arbol[client], "link5", 0);
+	SetTrieValue(arbol[client], "link6", 0);
+	SetTrieValue(arbol[client], "link7", 0);
+	SetTrieValue(arbol[client], "link8", 0);
+	SetTrieValue(arbol[client], "link9", 0);
+	
+	
+	comprobado[client] = true;
+}
+
+public tbasicoC(Handle:owner, Handle:hndl, const String:error[], any:data)
+{
+	if (hndl == INVALID_HANDLE)
+	{
+		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+	}
+	LogMessage("Database connection successful");
+	
+	for(new client = 1; client <= MaxClients; client++)
+	{
+		if(IsClientInGame(client))
+		{
+			OnClientPostAdminCheck(client);
+		}
+	}
+}
+
+public tbasicoP(Handle:owner, Handle:hndl, const String:error[], any:data)
+{
+	if (hndl == INVALID_HANDLE)
+	{
+		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+		ComprobarDB();
+	}
+	LogMessage("Prune Database successful");
 }
 
 stock urlencode(const String:sString[], String:sResult[], len)
