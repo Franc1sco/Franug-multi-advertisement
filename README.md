@@ -28,15 +28,15 @@ You can set each X seconds reproduce that link and if show in background or no.
 
 Example links for motdgd:
 ```
-http://motdgd.com/motd/?user=10696&ip={IP}&pt={PORT}&v=2.5.2&st={STEAMID}&gm={GAME}&name={NAME} 650 yes
+http://motdgd.com/motd/?user=10696&ip={IP}&pt={PORT}&v=2.5.2&st={STEAMID}&gm={GAME}&name={NAME} 650 no
 ```
 
 Example link for pinion:
 ```
-http://motd.pinion.gg/motd/playelectronicsports/{GAME}/motd.html 650 yes
+http://motd.pinion.gg/motd/playelectronicsports/{GAME}/motd.html 650 no
 ```
 
 Example link for vppgamingnetwork:
 ```
-http://vppgamingnetwork.com/Client/Content/1288 650 yes
+http://vppgamingnetwork.com/Client/Content/1288 650 no
 ```
