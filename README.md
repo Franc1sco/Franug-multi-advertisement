@@ -2,6 +2,16 @@
 
 * You can add your links (one per line) with advertisements in addons/sourcemod/configs/franug_adverts.txt (MAX 10 LINKS)
 
+* Add a entry in databases.cfg
+```
+"multiadvers""
+{
+"driver" "sqlite"
+"database" "multiadvers"
+} 
+```
+
+
 You can add the following words to the links for auto replace:
 ```
 {NAME} - Name of the client that view the advert
