@@ -1,11 +1,40 @@
+/*  SM MULTI Adverts
+ *
+ *  Copyright (C) 2017 Francisco 'Franc1sco' García
+ * 
+ * This program is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option) 
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT 
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with 
+ * this program. If not, see http://www.gnu.org/licenses/.
+ */
+ 
+
 #include <sourcemod>
 
-// start
+// CONFIGURATION
+//
+// time between advert
 #define MIN_TIME 10.0
 #define MAX_TIME 15.0
-// end
+//
 
-#define IDAYS 1 // purge
+// advert lifetime
+#define MIN_DURATION 20.0
+#define MAX_DURATION 30.0
+//
+
+#define IDAYS 1 // purge old clients in database every X days
+//
+//
+// END CONFIGURATION
+
 
 new String:gameDir[255];
 new String:g_serverIP[16];
@@ -30,7 +59,7 @@ public Plugin:myinfo =
     name = "MULTI Adverts",
     author = "Franc1sco franug",
     description = "",
-    version = "3.0",
+    version = "3.0.1",
     url = "http://steamcommunity.com/id/franug"
 };
 
@@ -230,7 +259,7 @@ public Action:Comando(client, args)
 	LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 	SQL_TQuery(db, tbasico2, buffer);
 	
-	tiempo[client] = CreateTimer(20.0, Pasado, client);
+	tiempo[client] = CreateTimer(GetRandomFloat(MIN_DURATION, MAX_DURATION), Pasado, client);
 	
 	//PrintToChat(client, "hecho");
 }
