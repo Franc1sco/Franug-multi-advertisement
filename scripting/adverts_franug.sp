@@ -50,7 +50,7 @@ new g_phraseCount;
 new String:g_Phrases[256][192];
 new Handle:arbol[MAXPLAYERS+1] = INVALID_HANDLE;
 
-new String:g_sCmdLogPath[256];
+//new String:g_sCmdLogPath[256];
 
 new Handle:tiempo[MAXPLAYERS+1];
 
@@ -59,7 +59,7 @@ public Plugin:myinfo =
     name = "MULTI Adverts",
     author = "Franc1sco franug",
     description = "",
-    version = "3.0.1",
+    version = "3.0.2",
     url = "http://steamcommunity.com/id/franug"
 };
 
@@ -115,7 +115,7 @@ SaveCookies(client)
 
 	decl String:buffer[3096];
 	Format(buffer, sizeof(buffer), "UPDATE publicidad SET last_accountuse = %d, playername = '%s' WHERE ip = '%s';",GetTime(), SafeName,steamid);
-	LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+	//LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 	SQL_TQuery(db, tbasico2, buffer);
 }
 
@@ -155,7 +155,7 @@ public OnSqlConnect(Handle:owner, Handle:hndl, const String:error[], any:data)
 {
 	if (hndl == INVALID_HANDLE)
 	{
-		LogToFileEx(g_sCmdLogPath, "Database failure: %s", error);
+		//LogToFileEx(g_sCmdLogPath, "Database failure: %s", error);
 		
 		SetFailState("Databases dont work");
 	}
@@ -171,7 +171,7 @@ public OnSqlConnect(Handle:owner, Handle:hndl, const String:error[], any:data)
 		{
 			Format(buffer, sizeof(buffer), "CREATE TABLE IF NOT EXISTS `publicidad` (`playername` varchar(128) NOT NULL, `ip` varchar(32) NOT NULL, `last_accountuse` int(64) NOT NULL DEFAULT '0', `link0` int(64) ,`link1` int(64) , `link2` int(64),`link3` int(64) ,`link4` int(64) ,`link5` int(64) ,`link6` int(64) ,`link7` int(64) ,`link8` int(64) ,`link9` int(64) , PRIMARY KEY  (`ip`))");
 
-			LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+			//LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 			SQL_TQuery(db, tbasicoC, buffer);
 
 		}
@@ -179,7 +179,7 @@ public OnSqlConnect(Handle:owner, Handle:hndl, const String:error[], any:data)
 		{
 			Format(buffer, sizeof(buffer), "CREATE TABLE IF NOT EXISTS publicidad (playername varchar(128) NOT NULL, ip varchar(32) NOT NULL, `last_accountuse` int(64) NOT NULL DEFAULT '0', link0 int(64) , link1 int(64) , link2 int(64) ,link3 int(64) ,link4 int(64) ,link5 int(64) ,link6 int(64) ,link7 int(64) ,link8 int(64) ,link9 int(64) , PRIMARY KEY  (ip))");
 		
-			LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+			//LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 			SQL_TQuery(db, tbasicoC, buffer);
 		}
 	}
@@ -256,7 +256,7 @@ public Action:Comando(client, args)
 	GetClientIP(client, ip, sizeof(steamid) );
 	decl String:buffer[3096];
 	Format(buffer, sizeof(buffer), "UPDATE publicidad SET %s = %d WHERE ip = '%s';",temp,GetTime(),steamid);
-	LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+	//LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 	SQL_TQuery(db, tbasico2, buffer);
 	
 	tiempo[client] = CreateTimer(GetRandomFloat(MIN_DURATION, MAX_DURATION), Pasado, client);
@@ -365,7 +365,7 @@ CheckSteamID(client)
 	GetClientIP(client, steamid, sizeof(steamid) );
 	
 	Format(query, sizeof(query), "SELECT * FROM publicidad WHERE ip = '%s'", steamid);
-	LogToFileEx(g_sCmdLogPath, "Query %s", query);
+	//LogToFileEx(g_sCmdLogPath, "Query %s", query);
 	SQL_TQuery(db, T_CheckSteamID, query, GetClientUserId(client));
 }
 
@@ -435,7 +435,7 @@ Nuevo(client)
 	}
 		
 	Format(query, sizeof(query), "INSERT INTO publicidad(playername, ip, last_accountuse) VALUES('%s', '%s', '0');", SafeName, steamid);
-	LogToFileEx(g_sCmdLogPath, "Query %s", query);
+	//LogToFileEx(g_sCmdLogPath, "Query %s", query);
 	SQL_TQuery(db, tbasico3, query, userid);
 }
 
@@ -444,7 +444,7 @@ public PruneDatabase()
 {
 	if (db == INVALID_HANDLE)
 	{
-		LogToFileEx(g_sCmdLogPath, "Prune Database: No connection");
+		//LogToFileEx(g_sCmdLogPath, "Prune Database: No connection");
 		ComprobarDB();
 		return;
 	}
@@ -459,7 +459,7 @@ public PruneDatabase()
 	else
 		Format(buffer, sizeof(buffer), "DELETE FROM publicidad WHERE last_accountuse<'%d' AND last_accountuse>'0';", maxlastaccuse);
 
-	LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
+	//LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 	SQL_TQuery(db, tbasicoP, buffer);
 }
 
@@ -467,7 +467,7 @@ public tbasico(Handle:owner, Handle:hndl, const String:error[], any:data)
 {
 	if (hndl == INVALID_HANDLE)
 	{
-		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+		//LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
 	}
 	new client;
  
@@ -484,7 +484,7 @@ public tbasico2(Handle:owner, Handle:hndl, const String:error[], any:data)
 {
 	if (hndl == INVALID_HANDLE)
 	{
-		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+		//LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
 		ComprobarDB();
 	}
 }
@@ -493,7 +493,7 @@ public tbasico3(Handle:owner, Handle:hndl, const String:error[], any:data)
 {
 	if (hndl == INVALID_HANDLE)
 	{
-		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+		//LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
 		ComprobarDB();
 	}
 	new client;
@@ -525,7 +525,7 @@ public tbasicoC(Handle:owner, Handle:hndl, const String:error[], any:data)
 {
 	if (hndl == INVALID_HANDLE)
 	{
-		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+		//LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
 	}
 	LogMessage("Database connection successful");
 	
@@ -542,7 +542,7 @@ public tbasicoP(Handle:owner, Handle:hndl, const String:error[], any:data)
 {
 	if (hndl == INVALID_HANDLE)
 	{
-		LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
+		//LogToFileEx(g_sCmdLogPath, "Query failure: %s", error);
 		ComprobarDB();
 	}
 	LogMessage("Prune Database successful");
