@@ -6,7 +6,7 @@
 
 #define STRING(%1) %1, sizeof(%1)
 
-#define PLUGIN_VERSION "2.4.19"
+#define PLUGIN_VERSION "2.5"
 
 // ====[ HANDLES | CVARS | VARIABLES ]===================================================
 //new Handle:g_motdID;
@@ -16,6 +16,7 @@ new Handle:g_OnOther;
 new Handle:g_Review;
 new Handle:g_forced;
 new Handle:g_autoClose;
+new Handle:g_always;
 
 new const String:g_GamesSupported[][] = {
 	"tf",
@@ -116,6 +117,8 @@ public OnPluginStart()
 	HookEventEx("player_transitioned", Event_PlayerTransitioned);
 	// MOTDgd MOTD Stuff //
 	
+	g_always = CreateConVar("sm_adverts_always", "0", "Show adverts even to alive players");
+	
 	AutoExecConfig(true);
 	LoadWhitelist();
 
@@ -132,7 +135,23 @@ public OnPluginStart()
 		IP = SteamWorks_GetPublicIPCell();
 		Format(g_serverIP, sizeof(g_serverIP), "%d.%d.%d.%d", IP >>> 24 & 255, IP >>> 16 & 255, IP >>> 8 & 255, IP & 255);
 	}
+	
+	CreateTimer(60.0, Adverts, _, TIMER_REPEAT);
 }
+
+public Action:Adverts(Handle:timer, any:userid)
+{
+	if (!GetConVarBool(g_always))return;
+	
+	
+	for(new i=1;i<=MaxClients;i++) 
+	{
+		if(IsClientInGame(i))
+			ShowAdv(i);
+	}	
+}
+
+
 
 public OnLibraryAdded(const String:name[]) {
 	if(strcmp(name, "SteamWorks")==0) {
@@ -290,6 +309,20 @@ public Action:Event_Start(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 
 	return Plugin_Continue;
+}
+
+ShowAdv(client)
+{
+	// Re-view minutes must be 15 or higher, re-view mode (onother) for this event
+	if (GetConVarFloat(g_Review) < 15.0)
+		return;
+	
+	// Only process the re-view event if the client is valid and is eligible to view another advertisement
+	if (IsValidClient(client) && CanReview && GetTime() - g_lastView[client] >= GetConVarFloat(g_Review) * 60)
+	{
+		g_lastView[client] = GetTime();
+		CreateTimer(0.1, PreMotdTimer, GetClientUserId(client));
+	}
 }
 
 public Action:CheckPlayerDeath(Handle:timer, any:userid)
