@@ -59,12 +59,17 @@ public Plugin:myinfo =
     name = "MULTI Adverts",
     author = "Franc1sco franug",
     description = "",
-    version = "3.0.2",
+    version = "3.0.3",
     url = "http://steamcommunity.com/id/franug"
 };
 
+ConVar gc_sURL;
+
 public OnPluginStart()
 {
+	gc_sURL = CreateConVar("sm_franugadverts_url", "http://cola-team.com/franug/redirect.php", "URL to your webspace with webshortcuts webpart");
+	
+	
 	GetGameFolderName(gameDir, sizeof(gameDir));
 	new Handle:serverIP = FindConVar("hostip");
 	new Handle:serverPort = FindConVar("hostport");
@@ -273,12 +278,23 @@ public Action:Comando(client, args)
 	CloseHandle(Radio);
 }
  */
+ 
+ stock void StreamPanel(char [] web, client) 
+{ 
+	char url[64]; 
+	gc_sURL.GetString(url, sizeof(url)); 
+	Format(web, 512, "%s?web=%s&fullsize=1", url, web); 
+	ShowMOTDPanel( client, " ", url, MOTDPANEL_TYPE_URL );
+	
+	
+} 
+/*
 stock StreamPanel(String:url[512], client)
 {
 	Format(url, sizeof(url), "javascript: var x = screen.width * 0.90;var y = screen.height * 0.90;window.open(\"%s\", \"Really boomix, JS?\",\"scrollbars=yes, width='+x+',height='+y+'\");", url);
 	ShowMOTDPanel( client, " ", url, MOTDPANEL_TYPE_URL );
 	
-}
+}*/
 
 stock StreamPanel3(String:url[512], client)
 {
