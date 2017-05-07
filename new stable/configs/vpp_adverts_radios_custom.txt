@@ -1,0 +1,8 @@
+// You can add your own radio stations here, feel free to share them so they can be added for future updates.
+
+"Radio Stations"
+{
+	"Radio Example" {
+		"url" "http://example.com"
+	}
+}

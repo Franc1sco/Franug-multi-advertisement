@@ -1,0 +1,35 @@
+// This file contains the default list of radio stations, if you wish to add your own please use vpp_adverts_radios_custom.txt and follow the same format as this file.
+
+"Radio Stations"
+{
+	"Hive365" {
+		"url" "http://hive365.co.uk/plugin/player/"
+	}
+	"FragRadio" {
+		"url" "http://fragradio.com//resources/plugins/sourcemod/player.php"
+	}
+	"Dubbeh" {
+		"url" "https://radio.dubbeh.net/index.php"
+	}
+	"PonyVilleLive" {
+		"url" "http://ponyvillelive.com/index/tunein/id/"
+	}
+	"RMF FM" {
+		"url" "http://217.74.72.11:8000/rmf_fm"
+	}
+	"RMF MAXXX" {
+		"url" "http://217.74.72.11:8000/rmf_maxxx"
+	}
+	"OpenFM Chillout" {
+		"url" "http://gr-relay-18.gaduradio.pl/33"
+	}
+	"OpenFM Fun" {
+		"url" "http://gr-relay-18.gaduradio.pl/51"
+	}
+	"OpenFM 100% Hits" {
+		"url" "http://gr-relay-17.gaduradio.pl/64"
+	}
+	"OpenFM Impreza" {
+		"url" "http://gr-relay-16.gaduradio.pl/2"
+	}
+}

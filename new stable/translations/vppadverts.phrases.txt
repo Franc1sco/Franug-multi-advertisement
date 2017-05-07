@@ -1,0 +1,81 @@
+﻿"Phrases"
+{
+	"Radio Message"
+	{
+		"en" "An advert is currently in progress, the radio will start after it has finished."
+		"pl" "Reklama jest obecnie aktywna, radio zostanie uruchomione po jej zakończeniu."
+	}
+	
+	"Misc Message"
+	{
+		"en" "An advert is currently in progress, please try again after the ad finishes."
+		"pl" "Reklama jest obecnie aktywna, spróbuj ponownie po jej zakończeniu."
+	}
+	
+	"Advert Finished"
+	{
+		"en" "The advert has finished, thanks for your support!"
+		"pl" "Reklama się skończyła, dziękujemy za wsparcie"
+	}
+	
+	"Kick Message"
+	{
+		"en" "You must set cl_disablehtmlmotd 0 to play here"
+		"pl" "Musisz mieć ustawione cl_disablehtmlmotd 0 aby tutaj grać"
+	}
+	
+	"Reload Success"
+	{
+		"en" "Reloaded successfully."
+		"pl" "Załadowano pomyślnie."
+	}
+	
+	"Reload Failed"
+	{
+		"en" "Reload failed, check error logs for more information."
+		"pl" "Nie udało się załadować, sprawdź logi, aby uzyskać więcej informacji."
+	}
+
+	"Radios Loaded"
+	{
+		"#format" "{1:d}"
+
+		"en" "{1} Radio stations loaded."
+		"pl" "{1} stacji radiowych zostało załadowanych."
+	}
+	
+	"Menu_Title"
+	{
+		"#format"	""
+		"en"		"Your HTML MOTD is disabled!"
+		"pl"		"Twój HTML MOTD jest wyłączony!"
+	}
+	
+	"Menu_Phrase_0"
+	{
+		"#format"	""
+		"en"		"Please enable it to help support this server."
+		"pl"		"Proszę, włącz to. Pomoże to wspierać nasz serwer"
+	}
+	
+	"Menu_Phrase_1"
+	{
+		"#format"	""
+		"en"		"- Type cl_disablehtmlmotd 0 into console."
+		"pl"		"- Wpisz polecenie cl_disablehtmlmotd 0 do konsoli."
+	}
+
+	"Menu_Phrase_2"
+	{
+		"#format"	""
+		"en"		"After you have done this, the notification will stop appearing."
+		"pl"		"Po wykonaniu tej czynności powiadomienia zostaną wyłączone."
+	}
+
+	"Menu_Phrase_Exit"
+	{
+		"#format"	""
+		"en"		"Exit"
+		"pl"		"Wyjście"
+	}
+} 
