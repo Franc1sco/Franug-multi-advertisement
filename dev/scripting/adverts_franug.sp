@@ -59,7 +59,7 @@ public Plugin:myinfo =
     name = "MULTI Adverts",
     author = "Franc1sco franug",
     description = "",
-    version = "3.0.3",
+    version = "3.1",
     url = "http://steamcommunity.com/id/franug"
 };
 
@@ -174,7 +174,7 @@ public OnSqlConnect(Handle:owner, Handle:hndl, const String:error[], any:data)
 	
 		if (ismysql == 1)
 		{
-			Format(buffer, sizeof(buffer), "CREATE TABLE IF NOT EXISTS `publicidad` (`playername` varchar(128) NOT NULL, `ip` varchar(32) NOT NULL, `last_accountuse` int(64) NOT NULL DEFAULT '0', `link0` int(64) ,`link1` int(64) , `link2` int(64),`link3` int(64) ,`link4` int(64) ,`link5` int(64) ,`link6` int(64) ,`link7` int(64) ,`link8` int(64) ,`link9` int(64) , PRIMARY KEY  (`ip`))");
+			Format(buffer, sizeof(buffer), "CREATE TABLE IF NOT EXISTS `publicidad` (`playername` varchar(128) NOT NULL, `ip` varchar(32) NOT NULL, `last_accountuse` int(64) NOT NULL DEFAULT '0',`link1` int(64) , `link2` int(64),`link3` int(64) ,`link4` int(64) ,`link5` int(64) ,`link6` int(64) ,`link7` int(64) ,`link8` int(64) ,`link9` int(64) , PRIMARY KEY  (`ip`))");
 
 			//LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 			SQL_TQuery(db, tbasicoC, buffer);
@@ -182,7 +182,7 @@ public OnSqlConnect(Handle:owner, Handle:hndl, const String:error[], any:data)
 		}
 		else
 		{
-			Format(buffer, sizeof(buffer), "CREATE TABLE IF NOT EXISTS publicidad (playername varchar(128) NOT NULL, ip varchar(32) NOT NULL, `last_accountuse` int(64) NOT NULL DEFAULT '0', link0 int(64) , link1 int(64) , link2 int(64) ,link3 int(64) ,link4 int(64) ,link5 int(64) ,link6 int(64) ,link7 int(64) ,link8 int(64) ,link9 int(64) , PRIMARY KEY  (ip))");
+			Format(buffer, sizeof(buffer), "CREATE TABLE IF NOT EXISTS publicidad (playername varchar(128) NOT NULL, ip varchar(32) NOT NULL, `last_accountuse` int(64) NOT NULL DEFAULT '0', link1 int(64) , link2 int(64) ,link3 int(64) ,link4 int(64) ,link5 int(64) ,link6 int(64) ,link7 int(64) ,link8 int(64) ,link9 int(64) , PRIMARY KEY  (ip))");
 		
 			//LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 			SQL_TQuery(db, tbasicoC, buffer);
@@ -209,29 +209,37 @@ public Action:Comando(client, args)
 	decl String:frase[512];
 
 	new link = GetRandomInt(0,(g_phraseCount -1 ));
+	link++;
 	new valor;
 	decl String:temp[32];
 	Format(temp, 32, "link%i", link);
 	//PrintToChatAll("paso1 %s", link);
 	new String:partes[3][512];
+	link--;
 	ExplodeString(g_Phrases[link], " ", partes, 3, 512);
 	Format(frase, 512, "%s",partes[0]);
 	//PrintToChatAll("paso1 %s %s %s", partes[0],partes[1],partes[2]);
-	if(!GetTrieValue(arbol[client], temp, valor)) return;
+	if(!GetTrieValue(arbol[client], temp, valor)) return Plugin_Handled;
+	
+	//PrintToConsole(client, "test1");
+	
+	//PrintToConsole(client, partes[0]);
+	//PrintToConsole(client, partes[1]);
+	//PrintToConsole(client, partes[2]);
 	
 	if(valor != 0)
 	{
 		new maxlastaccuse;
 		maxlastaccuse = GetTime() - (1 * StringToInt(partes[1]));
-		if(maxlastaccuse < valor) return;
+		if(maxlastaccuse < valor) return Plugin_Handled;
 	}
 	
-	
+	//PrintToConsole(client, "test2");
 /* 	new valorf = link+1;
 	decl String:temp2[32];
 	Format(temp2, 32, "link%i", valorf);
 	PrintToChatAll("paso1 %s", link); */
-	if(IsPlayerAlive(client) && StrEqual(partes[2], "si")) return;
+	if(IsPlayerAlive(client) && StrEqual(partes[2], "no")) return Plugin_Handled;
 	
 	decl String:url[255];
 	decl String:steamid[255];
@@ -258,14 +266,19 @@ public Action:Comando(client, args)
 	
 	
 	decl String:ip[32];
-	GetClientIP(client, ip, sizeof(steamid) );
+	GetClientIP(client, ip, sizeof(ip) );
 	decl String:buffer[3096];
-	Format(buffer, sizeof(buffer), "UPDATE publicidad SET %s = %d WHERE ip = '%s';",temp,GetTime(),steamid);
+	Format(buffer, sizeof(buffer), "UPDATE publicidad SET %s = %d WHERE ip = '%s';",temp,GetTime(),ip);
 	//LogToFileEx(g_sCmdLogPath, "Query %s", buffer);
 	SQL_TQuery(db, tbasico2, buffer);
 	
-	tiempo[client] = CreateTimer(GetRandomFloat(MIN_DURATION, MAX_DURATION), Pasado, client);
+	if (tiempo[client] != INVALID_HANDLE)KillTimer(tiempo[client]);
 	
+	
+	tiempo[client] = CreateTimer(GetRandomFloat(MIN_DURATION, MAX_DURATION), Pasado, client);
+	//PrintToConsole(client, "test3");
+	
+	return Plugin_Handled;
 	//PrintToChat(client, "hecho");
 }
 
@@ -281,10 +294,14 @@ public Action:Comando(client, args)
  
  stock void StreamPanel(char [] web, client) 
 { 
-	char url[64]; 
+	char temp[256];
+	//PrintToConsole(client, web);
+	char url[256]; 
 	gc_sURL.GetString(url, sizeof(url)); 
-	Format(web, 512, "%s?web=%s&fullsize=1", url, web); 
-	ShowMOTDPanel( client, " ", url, MOTDPANEL_TYPE_URL );
+	//PrintToConsole(client, url);
+	Format(temp, 512, "%s?web=%s&fullsize=1", url, web); 
+	//PrintToConsole(client, temp);
+	ShowMOTDPanel(client, "Web Shortcuts", temp, MOTDPANEL_TYPE_URL );
 	
 	
 } 
@@ -304,11 +321,8 @@ stock StreamPanel3(String:url[512], client)
 
 public Action:Pasado(Handle:timer, any:client)
 {
-	if(IsClientInGame(client))
-	{
-		StreamPanel3("http://motdgd.com/motd/blank.php", client);
-		tiempo[client] = INVALID_HANDLE;
-	}
+	StreamPanel3("about:blank", client);
+	tiempo[client] = INVALID_HANDLE;
 }
 
 GetRandomPlayer()
@@ -424,7 +438,7 @@ public T_CheckSteamID(Handle:owner, Handle:hndl, const String:error[], any:data)
 		Format(temp2, sizeof(temp2), "link%i", link);
 		SetTrieValue(arbol[client], temp2, temp);
 		link++;
-		
+		//PrintToChatAll(temp2);
 		//LogMessage("Sacado %i del arma %s", FindStringInArray(array_paints, temp),Items);
 		
 		contar++;
