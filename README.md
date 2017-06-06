@@ -4,7 +4,7 @@
 
 * Add a entry in databases.cfg
 ```
-"multiadvers""
+"multiadvers"
 {
 "driver" "sqlite"
 "database" "multiadvers"
