@@ -17,6 +17,8 @@
  
 
 #include <sourcemod>
+#undef REQUIRE_PLUGIN
+#include <weblync>
 
 // CONFIGURATION
 //
@@ -59,16 +61,20 @@ public Plugin:myinfo =
     name = "MULTI Adverts",
     author = "Franc1sco franug",
     description = "",
-    version = "3.1",
+    version = "3.2",
     url = "http://steamcommunity.com/id/franug"
 };
 
 ConVar gc_sURL;
+ConVar cvar_alive;
+
+bool weblync = false;
 
 public OnPluginStart()
 {
 	gc_sURL = CreateConVar("sm_franugadverts_url", "http://cola-team.com/franug/redirect.php", "URL to your webspace with webshortcuts webpart");
 	
+	cvar_alive = CreateConVar("sm_franugadverts_alive", "1", "1 = enable adverts to alive players. 0 = disabled for alive players.");
 	
 	GetGameFolderName(gameDir, sizeof(gameDir));
 	new Handle:serverIP = FindConVar("hostip");
@@ -84,6 +90,29 @@ public OnPluginStart()
 	RegConsoleCmd("sm_publicidad", Comando);
 	
 	ComprobarDB(true, "multiadvers");
+	
+	CreateTimer(GetRandomFloat(MIN_TIME, MAX_TIME), Tiempo);
+}
+
+public void OnAllPluginsLoaded()
+{
+	weblync = LibraryExists("weblync");
+}
+ 
+public void OnLibraryRemoved(const char[] name)
+{
+	if (StrEqual(name, "weblync"))
+	{
+		weblync = false;
+	}
+}
+ 
+public void OnLibraryAdded(const char[] name)
+{
+	if (StrEqual(name, "weblync"))
+	{
+		weblync = true;
+	}
 }
 
 public OnClientDisconnect(client)
@@ -193,6 +222,8 @@ public OnSqlConnect(Handle:owner, Handle:hndl, const String:error[], any:data)
 public OnMapStart()
 {
 	g_phraseCount = BuildPhrases();
+	
+	
 }
 
 public Action:Tiempo(Handle:timer)
@@ -239,7 +270,7 @@ public Action:Comando(client, args)
 	decl String:temp2[32];
 	Format(temp2, 32, "link%i", valorf);
 	PrintToChatAll("paso1 %s", link); */
-	if(IsPlayerAlive(client) && StrEqual(partes[2], "no")) return Plugin_Handled;
+	if(!GetConVarBool(cvar_alive) && IsPlayerAlive(client) && StrEqual(partes[2], "no")) return Plugin_Handled;
 	
 	decl String:url[255];
 	decl String:steamid[255];
@@ -258,8 +289,10 @@ public Action:Comando(client, args)
 	ReplaceString(url, 255, "{STEAMID}", steamid, true);
 	ReplaceString(url, 255, "{GAME}", gameDir, true);
 	
-	
-	if(StrEqual(partes[2], "no", false)) StreamPanel(frase, client);
+	if(StrEqual(partes[2], "no", false))
+	{
+		StreamPanel(frase, client);
+	}
 	else StreamPanel3(frase, client);
 	
 	SetTrieValue(arbol[client], temp, GetTime());
@@ -294,6 +327,14 @@ public Action:Comando(client, args)
  
  stock void StreamPanel(char [] web, client) 
 { 
+	//PrintToChat(client, "mostrando %s", web);
+	//ShowMOTDScreen(client, web, false);
+	
+	if(weblync)
+	{
+		WebLync_OpenUrl(client, web);
+		return;
+	}
 	char temp[256];
 	//PrintToConsole(client, web);
 	char url[256]; 
@@ -316,13 +357,37 @@ stock StreamPanel(String:url[512], client)
 stock StreamPanel3(String:url[512], client)
 {
 	ShowMOTDPanel( client, " ", url, MOTDPANEL_TYPE_URL );
+	//PrintToChat(client, "mostrando %s escondido", url);
+	//ShowMOTDScreen(client, url, true);
 	
 }
 
 public Action:Pasado(Handle:timer, any:client)
 {
-	StreamPanel3("about:blank", client);
+	if(weblync)
+	{
+		WebLync_OpenUrl(client, "about:blank");
+	}
+	else FakeClientCommand(client, "say /motd");
+	//StreamPanel3("about:blank", client);
+	
+	//PrintToChat(client, "fin de advert");
+	//ShowMOTDScreen(client, "http://", false);
+	
 	tiempo[client] = INVALID_HANDLE;
+}
+
+stock ShowMOTDScreen(client, String:url[], bool:hidden)
+{
+	new Handle:kv = CreateKeyValues("data");
+
+	KvSetNum(kv, "cmd", 5);
+
+	KvSetString(kv, "msg", url);
+	KvSetString(kv, "title", "_blank");
+	KvSetNum(kv, "type", MOTDPANEL_TYPE_URL);
+	ShowVGUIPanel(client, "info", kv, !hidden);
+	CloseHandle(kv);
 }
 
 GetRandomPlayer()
