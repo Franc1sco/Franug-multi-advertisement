@@ -61,7 +61,7 @@ public Plugin:myinfo =
     name = "MULTI Adverts",
     author = "Franc1sco franug",
     description = "",
-    version = "3.2",
+    version = "3.2.1",
     url = "http://steamcommunity.com/id/franug"
 };
 
@@ -272,7 +272,7 @@ public Action:Comando(client, args)
 	PrintToChatAll("paso1 %s", link); */
 	if(!GetConVarBool(cvar_alive) && IsPlayerAlive(client) && StrEqual(partes[2], "no")) return Plugin_Handled;
 	
-	decl String:url[255];
+	//decl String:url[255];
 	decl String:steamid[255];
 	decl String:name[MAX_NAME_LENGTH];
 	decl String:name_encoded[MAX_NAME_LENGTH*2];
@@ -283,11 +283,11 @@ public Action:Comando(client, args)
 
 	char temport[24];
 	IntToString(g_serverPort, temport, 24);
-	ReplaceString(url, 255, "{NAME}", name_encoded, true);
-	ReplaceString(url, 255, "{IP}", g_serverIP, true);
-	ReplaceString(url, 255, "{PORT}", temport, true);
-	ReplaceString(url, 255, "{STEAMID}", steamid, true);
-	ReplaceString(url, 255, "{GAME}", gameDir, true);
+	ReplaceString(frase, 255, "{NAME}", name_encoded, true);
+	ReplaceString(frase, 255, "{IP}", g_serverIP, true);
+	ReplaceString(frase, 255, "{PORT}", temport, true);
+	ReplaceString(frase, 255, "{STEAMID}", steamid, true);
+	ReplaceString(frase, 255, "{GAME}", gameDir, true);
 	
 	if(StrEqual(partes[2], "no", false))
 	{
