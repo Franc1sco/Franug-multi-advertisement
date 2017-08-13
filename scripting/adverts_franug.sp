@@ -61,7 +61,7 @@ public Plugin:myinfo =
     name = "MULTI Adverts",
     author = "Franc1sco franug",
     description = "",
-    version = "3.2.1",
+    version = "3.2.2",
     url = "http://steamcommunity.com/id/franug"
 };
 
@@ -92,6 +92,8 @@ public OnPluginStart()
 	ComprobarDB(true, "multiadvers");
 	
 	CreateTimer(GetRandomFloat(MIN_TIME, MAX_TIME), Tiempo);
+	
+	AutoExecConfig();
 }
 
 public void OnAllPluginsLoaded()
